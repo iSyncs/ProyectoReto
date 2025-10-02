@@ -1,0 +1,442 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: "Poppins", sans-serif;
+}
+
+body, html {
+  width: 100%;
+  height: 100%;
+  background: #f2f2f2;
+}
+
+.login-wrapper {
+  display: flex;
+  width: 95%;
+  max-width: 1200px;
+  min-height: 700px;
+  border-radius: 20px;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+  overflow: hidden;
+  background: white;
+  flex-wrap: wrap; 
+  margin: 50px auto;
+}
+
+.login-left {
+  flex: 1;
+  min-width: 350px;
+  background: #ec0000; 
+  color: white;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem;
+}
+
+.image-placeholder img {
+  max-width: 100%;
+  height: auto;
+  margin: 2rem 0;
+}
+
+.login-right {
+  flex: 1;
+  min-width: 350px;
+  background: white;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 3rem 4rem;
+    background: #f5f5f5; 
+  box-shadow: 0 4px 15px rgba(0,0,0,0.1); /* sutil */
+  border-radius: 12px;
+}
+
+.tab-container {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 1.5rem;
+  
+}
+
+.tab {
+  padding: 0.6rem 1.2rem;
+  border: none;
+  background: #ffffff;
+  cursor: pointer;
+  border-radius: 20px 20px 0 0;
+  font-weight: bold;
+  margin-left: 0.5rem;
+  transition: 0.3s;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+  border-radius: 1.3rem;
+}
+
+.tab:hover {
+  background: #f98686;
+  color: white;
+}
+
+.tab.active {
+  background: #ec0000;
+  color: white;
+}
+
+.title {
+  font-size: 2rem;
+  font-weight: 600;
+  margin-bottom: 2rem;
+  text-align: center;
+  color: black;
+}
+
+form {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.full-width {
+  width: 100%;
+  padding: 1rem;
+  margin-bottom: 1.5rem;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 1.1rem;
+  background-color: #ffffff; 
+  color: #333;
+}
+
+.full-width:focus {
+  outline: none;
+  border-color: #ec0000;
+  box-shadow: 0 0 5px #ec0000;
+  background-color: #ffffff;
+}
+.signup-btn {
+  display: block;
+  margin: 2em auto;
+  padding: 1.2rem 3rem;
+  background-color: red;   
+  color: white;
+  font-weight: 600;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  width: auto; 
+  min-width: 60%;
+  max-width: 80%;
+  text-align: center;
+  font-size: 1.1rem;
+  transition: 0.3s;
+}
+
+.signup-btn:hover {
+  background: #b80000;
+}
+
+
+#error {
+  color: #ec0000;
+  margin-top: 10px;
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+.recover-link {
+  margin-top: 1rem;
+  color: #ec0000;
+  text-decoration: none;
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+.recover-link:hover {
+  text-decoration: underline;
+}
+
+@media (max-width: 768px) {
+  .login-wrapper {
+    flex-direction: column;
+    min-height: auto;
+  }
+
+  .login-left, .login-right {
+    flex: none;
+    width: 100%;
+    min-height: 300px;
+    padding: 1.5rem;
+  }
+
+  .tab-container {
+    justify-content: center;
+  }
+}
+
+.index-main {
+  width: 70%;
+  margin: 40px auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.index-puesto {
+  color: black;
+  text-align: center;
+  font-weight: 500;
+  margin-bottom: 18px;
+  font-size: 1.25rem;
+}
+
+.index-puesto-rol {
+  color: #e60000;
+  font-weight: 500;
+}
+
+.index-h2 {
+  font-size: 2rem;
+}
+
+.index-jugando {
+  color: #e60000;
+}
+
+.manual-title {
+  color: black;
+  font-size: 2rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+}
+
+.manual-title-red {
+  color: #e60000;
+}
+
+.index-descripcion {
+  text-align: justify;
+}
+
+.manual-subtitle {
+  margin-top: 1rem;
+}
+
+.manual-diagrama {
+  margin-top: 1rem;
+}
+
+.dashboard-container {
+  width: 90%;
+  max-width: 1200px;
+  margin: 40px auto;
+  display: flex;
+}
+
+.videojuego-title {
+  color: black;
+  font-size: 2rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+}
+.videojuego-descripcion {
+  text-align: justify;
+  margin-bottom: 1.5rem;
+}
+
+.index-image-placeholder {
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  display: flex;
+  margin: 1rem 0;
+
+}
+
+.img_index {
+  width: 29.2rem;
+  height: auto;
+  border-radius: 12px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+  margin: 0 1rem;
+
+}
+
+/* Estilos mejorados para el upload */
+.upload-section {
+  width: 100%;
+  max-width: 600px;
+  margin: 2rem auto;
+  padding: 2rem;
+  background-color: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.file-upload-container {
+  width: 100%;
+  text-align: center;
+}
+
+.file-upload-label {
+  display: inline-block;
+  padding: 0.8rem 2rem;
+  background-color: #e0e0e0;
+  color: #333;
+  border: 2px solid #bbb;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.file-upload-label:hover {
+  background-color: #d0d0d0;
+  border-color: #999;
+}
+
+.file-input-hidden {
+  display: none;
+}
+
+.file-info {
+  width: 100%;
+  text-align: center;
+  padding: 1rem;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  border: 1px dashed #ccc;
+}
+
+.selected-file-name {
+  margin-bottom: 0.5rem;
+  color: #333;
+  font-size: 0.95rem;
+}
+
+.selected-file-name strong {
+  color: #e60000;
+}
+
+.selected-file-size {
+  color: #666;
+  font-size: 0.85rem;
+  margin: 0;
+}
+
+.send-to-lawyer-button {
+  padding: 1rem 2.5rem;
+  background-color: #e60000;
+  color: white;
+  font-weight: 600;
+  border: none;
+  border-radius: 10px;
+  font-size: 1.1rem;
+  cursor: pointer;
+  transition: 0.3s;
+  min-width: 60%;
+  box-shadow: 0 2px 8px rgba(230, 0, 0, 0.3);
+}
+
+.send-to-lawyer-button:hover:not(:disabled) {
+  background-color: #b80000;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(230, 0, 0, 0.4);
+}
+
+.send-to-lawyer-button:disabled {
+  background-color: #cccccc;
+  cursor: not-allowed;
+  opacity: 0.6;
+  box-shadow: none;
+}
+
+.upload-message {
+  width: 100%;
+  padding: 1rem;
+  border-radius: 8px;
+  font-weight: 500;
+  text-align: center;
+  animation: fadeIn 0.3s ease-in;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.upload-message.success {
+  background-color: #d4edda;
+  color: #155724;
+  border: 1px solid #c3e6cb;
+}
+
+.upload-message.error {
+  background-color: #f8d7da;
+  color: #721c24;
+  border: 1px solid #f5c6cb;
+}
+
+.analysis-section {
+  width: 100%;
+  margin-top: 1rem;
+  padding: 1.5rem;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border-left: 4px solid #e60000;
+}
+
+.analysis-section h3 {
+  margin-bottom: 1rem;
+  color: #e60000;
+  font-size: 1.2rem;
+}
+
+.analysis-content {
+  line-height: 1.8;
+  color: #333;
+  text-align: left;
+}
+
+.analysis-content p {
+  margin-bottom: 0.8rem;
+}
+
+.analysis-note {
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid #ddd;
+  color: #666;
+  font-style: italic;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .upload-section {
+    padding: 1.5rem;
+    width: 95%;
+  }
+
+  .send-to-lawyer-button {
+    min-width: 80%;
+    padding: 0.9rem 2rem;
+  }
+
+  .file-upload-label {
+    padding: 0.7rem 1.5rem;
+    font-size: 0.9rem;
+  }
+}
