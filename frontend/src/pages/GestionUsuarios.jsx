@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import "../styles/GestionUsuarios.css";
 
+// Componente para la gestión de usuarios (creación de nuevos usuarios)
 export default function GestionUsuarios() {
   const [user, setUser] = useState(null);
   const [newUser, setNewUser] = useState({
@@ -14,39 +15,42 @@ export default function GestionUsuarios() {
   const [creatingUser, setCreatingUser] = useState(false);
   const navigate = useNavigate();
 
+  // Verifica si el usuario es admin al cargar el componente
   useEffect(() => {
     const token = localStorage.getItem("token");
+    // Si no hay token, redirige al login
     if (!token) {
       navigate("/");
       return;
     }
-
+    // Verifica el rol del usuario con el token
     (async () => {
       const res = await fetch("http://localhost:4000/api/me", {
         headers: { Authorization: `Bearer ${token}` },
       });
-      
+    // Si el token no es válido o el usuario no es admin, redirige      
       if (!res.ok) {
         localStorage.removeItem("token");
         navigate("/");
         return;
       }
-      
+      // Si el usuario no es admin, redirige al dashboard
       const data = await res.json();
-      
       if (data.user.puesto !== 'admin') {
         navigate("/dashboard");
         return;
       }
-      
+     // Si todo está bien, guarda los datos del usuario 
       setUser(data.user);
     })();
   }, [navigate]);
 
+  // Maneja la creación de un nuevo usuario
   const handleCreateUser = async (e) => {
     e.preventDefault();
     setCreatingUser(true);
 
+// Realiza la solicitud al backend para crear el usuario
     try {
       const token = localStorage.getItem("token");
       const res = await fetch("http://localhost:4000/api/admin/create-user", {
@@ -57,33 +61,41 @@ export default function GestionUsuarios() {
         },
         body: JSON.stringify(newUser)
       });
-
+    // Maneja la respuesta del servidor
       if (res.ok) {
+        // Si se crea correctamente, muestra las credenciales generadas
         const data = await res.json();
         setCreatedUserData(data.usuario);
         setNewUser({ nombre: '', apellido_p: '', apellido_m: '', puesto: 'empleado' });
-      } else {
+      } 
+      // Si hay un error, muestra una alerta
+      else {
         const error = await res.json();
         alert(`Error: ${error.message}`);
       }
-    } catch (err) {
+    } 
+    // En caso de error de red u otro tipo
+    catch (err) {
       alert("Error al crear usuario");
-    } finally {
+    } 
+    // Finalmente, desactiva el estado de creación
+    finally {
       setCreatingUser(false);
     }
   };
-
+// Maneja la acción de crear otro usuario
   const handleNewUser = () => {
     setCreatedUserData(null);
     setNewUser({ nombre: '', apellido_p: '', apellido_m: '', puesto: 'empleado' });
   };
-
+// Maneja la acción de volver al dashboard
   const handleBack = () => {
     navigate("/dashboard");
   };
-
+// Muestra un indicador de carga mientras se verifica el usuario
   if (!user) return <div className="loading">Cargando...</div>;
 
+  // Renderiza el formulario de creación de usuario o las credenciales generadas
   return (
     <div className="gestion-container">
       <div className="gestion-card">

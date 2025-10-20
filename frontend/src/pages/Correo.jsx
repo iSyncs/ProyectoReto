@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "../styles/Correo.css";
+import ReactMarkdown from 'react-markdown';
 
 export default function Correo() {
   const [user, setUser] = useState(null);
@@ -297,10 +298,11 @@ const handleDownload = async () => {
                 <div className="modal-body">
                   <h3 className="analysis-title">Analisis del Documento (IA)</h3>
                   <div className="analysis-content">
-                    {selectedCorreo.analisis_ia?.split('\n').map((line, idx) => (
-                      <p key={idx}>{line}</p>
-                    ))}
-                  </div>
+                  <ReactMarkdown>
+                  {selectedCorreo.analisis_ia || ""}
+                  </ReactMarkdown>
+                </div>
+
                 </div>
               </>
             ) : (

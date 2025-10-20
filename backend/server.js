@@ -141,30 +141,31 @@ app.post('/api/upload-and-analyze', verifyToken, upload.single('file'), async (r
     const nombreCompleto = `${remitente.nombre} ${remitente.apellido_p}`;
 
     let analisisIA = 'Documento adjunto para revisión.';
-// 3. Analizar PDF con IA
-if (req.file.mimetype === 'application/pdf') {
-  try {
-    console.log('🤖 Analizando PDF con IA...');
-    const dataBuffer = fs.readFileSync(req.file.path);
-    const pdfData = await pdfParse(dataBuffer);
 
-    if (pdfData.text && pdfData.text.length > 50) {
-      if (!OPENROUTER_API_KEY) {
-        console.warn('⚠️ No hay API key de OpenRouter configurada');
-        analisisIA = 'Documento adjunto para revision manual.';
-      } else {
-        const response = await axios.post(
-          OPENROUTER_API_URL,
-          {
-            model: 'deepseek/deepseek-chat',
-            messages: [
+    // 3. Analizar PDF con IA
+    if (req.file.mimetype === 'application/pdf') {
+      try {
+        console.log('🤖 Analizando PDF con IA...');
+        const dataBuffer = fs.readFileSync(req.file.path);
+        const pdfData = await pdfParse(dataBuffer);
+
+        if (pdfData.text && pdfData.text.length > 50) {
+          if (!OPENROUTER_API_KEY) {
+            console.warn('⚠️ No hay API key de OpenRouter configurada');
+            analisisIA = 'Documento adjunto para revision manual.';
+          } else {
+            const response = await axios.post(
+              OPENROUTER_API_URL,
               {
-                role: 'system',
-                content: 'Eres un asistente legal. Proporciona analisis breves y concisos en formato de bullet points.'
-              },
-              {
-                role: 'user',
-                content: `Analiza este documento legal y lista unicamente los puntos clave en formato bullet:
+                model: 'deepseek/deepseek-chat',
+                messages: [
+                  {
+                    role: 'system',
+                    content: 'Eres un asistente legal. Proporciona analisis breves y concisos en formato de bullet points.'
+                  },
+                  {
+                    role: 'user',
+                    content: `Analiza este documento legal y lista unicamente los puntos clave en formato bullet:
 - Tipo de documento
 - Nombres mencionados
 - Fechas importantes
@@ -174,88 +175,115 @@ if (req.file.mimetype === 'application/pdf') {
 
 Documento:
 ${pdfData.text.substring(0, 15000)}`
+                  }
+                ],
+                temperature: 0.3,
+                max_tokens: 800
+              },
+              {
+                headers: {
+                  'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+                  'Content-Type': 'application/json',
+                  'HTTP-Referer': 'http://localhost:5173',
+                  'X-Title': 'Sistema Legal Santander'
+                }
               }
-            ],
-            temperature: 0.3,
-            max_tokens: 800
-          },
-          {
-            headers: {
-              'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
-              'Content-Type': 'application/json',
-              'HTTP-Referer': 'http://localhost:5173',
-              'X-Title': 'Sistema Legal Santander'
-            }
+            );
+            analisisIA = response.data.choices[0].message.content;
+            console.log('✅ Analisis completado');
           }
-        );
-        analisisIA = response.data.choices[0].message.content;
-        console.log('✅ Analisis completado');
+        } else {
+          analisisIA = 'No se pudo extraer texto del PDF.';
+        }
+      } catch (aiError) {
+        console.error('⚠️ Error en analisis IA:', aiError.response?.data || aiError.message);
+        analisisIA = 'Analisis automatico no disponible.';
       }
     } else {
-      analisisIA = 'No se pudo extraer texto del PDF.';
+      analisisIA = 'Analisis de IA solo disponible para archivos PDF.';
     }
-  } catch (aiError) {
-    console.error('⚠️ Error en analisis IA:', aiError.response?.data || aiError.message);
-    analisisIA = 'Analisis automatico no disponible.';
-  }
-} else {
-  analisisIA = 'Analisis de IA solo disponible para archivos PDF.';
-}
-    // 4. Guardar correo en BD
+
+    // 3.5 NUEVO: Detectar urgencia basada en el análisis de IA
+    let urgencia = 'normal';
+    if (analisisIA) {
+      const textoAnalisis = analisisIA.toLowerCase();
+      const palabrasUrgentes = [
+        'urgente', 'inmediato', 'prioridad alta', 'critico', 'demanda',
+        'emergencia', 'plazo', 'vencimiento', 'fecha limite', 'importante',
+        'requiere atencion', 'accion inmediata'
+      ];
+      
+      if (palabrasUrgentes.some(palabra => textoAnalisis.includes(palabra))) {
+        urgencia = 'urgente';
+        console.log('🚨 Documento marcado como URGENTE');
+      }
+    }
+
+    // 4. Guardar correo en BD CON ESTADO
     const [resultCorreo] = await pool.query(
-      'INSERT INTO correos (remitente_id, remitente_nombre, destinatario, asunto, archivo_id, nombre_archivo, analisis_ia, fecha_envio) VALUES (?, ?, ?, ?, ?, ?, ?, NOW())',
-      [req.userId, nombreCompleto, process.env.ABOGADO_EMAIL || 'abogado@santander.mx', `Nuevo documento: ${req.file.originalname}`, archivoId, req.file.originalname, analisisIA]
+      'INSERT INTO correos (remitente_id, remitente_nombre, destinatario, asunto, archivo_id, nombre_archivo, analisis_ia, estado, fecha_envio) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())',
+      [
+        req.userId, 
+        nombreCompleto, 
+        process.env.ABOGADO_EMAIL || 'abogado@santander.mx', 
+        `Nuevo documento: ${req.file.originalname}`, 
+        archivoId, 
+        req.file.originalname, 
+        analisisIA,
+        urgencia
+      ]
     );
-    console.log('✅ Correo guardado en BD');
+    console.log('✅ Correo guardado en BD con prioridad:', urgencia);
 
     // 5. Enviar email
-try {
-  if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
-    const mailOptions = {
-      from: process.env.EMAIL_USER,
-      to: process.env.ABOGADO_EMAIL || 'abogado@santander.mx',
-      subject: `Nuevo documento de ${nombreCompleto}: ${req.file.originalname}`,
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2 style="color: #e60000;">Nuevo documento recibido</h2>
-          
-          <p>Estimado Abogado,</p>
-          
-          <p>Le adjunto un archivo escaneado para su revision y tramite correspondiente.</p>
-          
-          <div style="background: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0;">
-            <p><strong>Remitente:</strong> ${nombreCompleto}</p>
-            <p><strong>Archivo:</strong> ${req.file.originalname}</p>
-            <p><strong>Tamaño:</strong> ${(req.file.size / 1024).toFixed(2)} KB</p>
-            <p><strong>Fecha:</strong> ${new Date().toLocaleString('es-MX')}</p>
-          </div>
-          
-          <h3 style="color: #333; border-bottom: 2px solid #e60000; padding-bottom: 5px;">
-            Analisis Preliminar (IA)
-          </h3>
-          <div style="background: #fff; padding: 15px; border-left: 4px solid #e60000; margin: 20px 0;">
-            ${analisisIA.replace(/\n/g, '<br>')}
-          </div>
-          
-          <p style="margin-top: 30px; color: #666; font-size: 12px; border-top: 1px solid #ddd; padding-top: 15px;">
-            Este correo fue generado automaticamente por el sistema de gestion documental de Santander.
-          </p>
-        </div>
-      `,
-      attachments: [{ filename: req.file.originalname, path: req.file.path }]
-    };
-    await transporter.sendMail(mailOptions);
-    console.log('✅ Email enviado');
-  }
-} catch (emailError) {
-  console.error('⚠️ Error al enviar email:', emailError.message);
-}
+    try {
+      if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
+        const mailOptions = {
+          from: process.env.EMAIL_USER,
+          to: process.env.ABOGADO_EMAIL || 'abogado@santander.mx',
+          subject: `${urgencia === 'urgente' ? '🚨 URGENTE - ' : ''}Nuevo documento de ${nombreCompleto}: ${req.file.originalname}`,
+          html: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+              <h2 style="color: #e60000;">Nuevo documento recibido ${urgencia === 'urgente' ? '- URGENTE 🚨' : ''}</h2>
+              
+              <p>Estimado Abogado,</p>
+              
+              <p>Le adjunto un archivo escaneado para su revision y tramite correspondiente.</p>
+              
+              <div style="background: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0;">
+                <p><strong>Remitente:</strong> ${nombreCompleto}</p>
+                <p><strong>Archivo:</strong> ${req.file.originalname}</p>
+                <p><strong>Tamaño:</strong> ${(req.file.size / 1024).toFixed(2)} KB</p>
+                <p><strong>Fecha:</strong> ${new Date().toLocaleString('es-MX')}</p>
+                <p><strong>Prioridad:</strong> <span style="color: ${urgencia === 'urgente' ? '#e60000' : '#28a745'}; font-weight: bold;">${urgencia.toUpperCase()}</span></p>
+              </div>
+              
+              <h3 style="color: #333; border-bottom: 2px solid #e60000; padding-bottom: 5px;">
+                Analisis Preliminar (IA)
+              </h3>
+              <div style="background: #fff; padding: 15px; border-left: 4px solid #e60000; margin: 20px 0;">
+                ${analisisIA.replace(/\n/g, '<br>')}
+              </div>
+              
+              <p style="margin-top: 30px; color: #666; font-size: 12px; border-top: 1px solid #ddd; padding-top: 15px;">
+                Este correo fue generado automaticamente por el sistema de gestion documental de Santander.
+              </p>
+            </div>
+          `,
+          attachments: [{ filename: req.file.originalname, path: req.file.path }]
+        };
+        await transporter.sendMail(mailOptions);
+        console.log('✅ Email enviado');
+      }
+    } catch (emailError) {
+      console.error('⚠️ Error al enviar email:', emailError.message);
+    }
 
     // 6. Responder exitosamente
     res.json({
       message: 'Archivo procesado y enviado exitosamente',
       file: { id: archivoId, nombre: req.file.originalname, tamano: req.file.size },
-      correo: { id: resultCorreo.insertId, analisis: analisisIA }
+      correo: { id: resultCorreo.insertId, analisis: analisisIA, urgencia: urgencia }
     });
 
   } catch (err) {
@@ -272,17 +300,16 @@ try {
 
 // Servir archivos estáticos de uploads
 app.use('/uploads', express.static(uploadsDir));
+
 // Endpoint para visualizar PDF con token en query string
 app.get('/api/archivos/view/:id', async (req, res) => {
   try {
-    // Obtener token desde query string (para iframes)
     const token = req.query.token;
     
     if (!token) {
       return res.status(401).json({ message: 'No token' });
     }
 
-    // Verificar token
     let userId;
     try {
       const decoded = jwt.verify(token, 'tu_secreto');
@@ -340,13 +367,11 @@ app.get('/api/archivos/download/:id', verifyToken, async (req, res) => {
 // ============ DASHBOARD STATS (Solo para admin) ============
 app.get('/api/dashboard/stats', verifyToken, async (req, res) => {
   try {
-    // Verificar que sea admin
     const [userCheck] = await pool.query('SELECT puesto FROM usuarios WHERE id = ?', [req.userId]);
     if (userCheck[0].puesto !== 'admin') {
       return res.status(403).json({ message: 'Acceso denegado' });
     }
 
-    // Estadísticas generales
     const [correosStats] = await pool.query(`
       SELECT 
         COUNT(*) as total_correos,
@@ -365,7 +390,6 @@ app.get('/api/dashboard/stats', verifyToken, async (req, res) => {
       FROM usuarios
     `);
 
-    // Top empleados por documentos enviados
     const [topEmpleados] = await pool.query(`
       SELECT 
         u.nombre,
@@ -374,32 +398,81 @@ app.get('/api/dashboard/stats', verifyToken, async (req, res) => {
       FROM usuarios u
       LEFT JOIN archivos a ON u.id = a.usuario_id
       WHERE u.puesto = 'empleado'
-      GROUP BY u.id
+      GROUP BY u.id, u.nombre, u.apellido_p
       ORDER BY total DESC
       LIMIT 10
     `);
 
-    // Correos recientes
     const [recentCorreos] = await pool.query(`
-      SELECT remitente_nombre, fecha_envio, leido
+      SELECT 
+        id,
+        remitente_nombre, 
+        nombre_archivo,
+        asunto,
+        fecha_envio, 
+        leido,
+        COALESCE(estado, 'normal') as estado
       FROM correos
       ORDER BY fecha_envio DESC
-      LIMIT 20
+      LIMIT 50
     `);
 
     res.json({
       stats: {
-        ...correosStats[0],
-        ...archivosStats[0],
-        ...usuariosStats[0]
+        total_correos: correosStats[0].total_correos,
+        no_leidos: correosStats[0].no_leidos,
+        leidos: correosStats[0].leidos,
+        total_archivos: archivosStats[0].total_archivos,
+        total_usuarios: usuariosStats[0].total_usuarios,
+        empleados: usuariosStats[0].empleados,
+        abogados: usuariosStats[0].abogados
       },
       topEmpleados,
       recentCorreos
     });
 
   } catch (err) {
-    console.error(err);
+    console.error('Error en /api/dashboard/stats:', err);
     res.status(500).json({ message: 'Error al obtener estadísticas' });
+  }
+});
+
+// ============ ENDPOINT PARA VER DETALLE DE CORREO (ADMIN) ============
+app.get('/api/admin/correo/:id', verifyToken, async (req, res) => {
+  try {
+    const [userCheck] = await pool.query('SELECT puesto FROM usuarios WHERE id = ?', [req.userId]);
+    if (userCheck[0].puesto !== 'admin') {
+      return res.status(403).json({ message: 'Acceso denegado' });
+    }
+
+    const [correos] = await pool.query(
+      `SELECT 
+        c.id,
+        c.remitente_nombre,
+        c.destinatario,
+        c.asunto,
+        c.nombre_archivo,
+        c.analisis_ia,
+        c.fecha_envio,
+        c.leido,
+        c.estado,
+        a.id as archivo_id,
+        a.ruta as archivo_ruta,
+        a.tipo as archivo_tipo
+       FROM correos c
+       LEFT JOIN archivos a ON c.archivo_id = a.id
+       WHERE c.id = ?`,
+      [req.params.id]
+    );
+
+    if (correos.length === 0) {
+      return res.status(404).json({ message: 'Correo no encontrado' });
+    }
+
+    res.json({ correo: correos[0] });
+  } catch (err) {
+    console.error('Error al obtener detalle de correo:', err);
+    res.status(500).json({ message: 'Error al obtener correo' });
   }
 });
 
@@ -417,10 +490,29 @@ app.get('/api/correos', verifyToken, async (req, res) => {
   }
 });
 
+app.get('/api/correos/:id', verifyToken, async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      `SELECT c.*, a.ruta as archivo_ruta FROM correos c
+       LEFT JOIN archivos a ON c.archivo_id = a.id WHERE c.id = ?`,
+      [req.params.id]
+    );
+    
+    if (rows.length === 0) {
+      return res.status(404).json({ message: 'Correo no encontrado' });
+    }
+    
+    await pool.query('UPDATE correos SET leido = TRUE WHERE id = ?', [req.params.id]);
+    res.json({ correo: rows[0] });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Error al obtener correo' });
+  }
+});
+
 // ============ REGISTRO DE NUEVOS USUARIOS (Solo admin) ============
 app.post('/api/admin/create-user', verifyToken, async (req, res) => {
   try {
-    // Verificar que sea admin
     const [userCheck] = await pool.query('SELECT puesto FROM usuarios WHERE id = ?', [req.userId]);
     if (userCheck[0].puesto !== 'admin') {
       return res.status(403).json({ message: 'Acceso denegado. Solo administradores.' });
@@ -428,22 +520,18 @@ app.post('/api/admin/create-user', verifyToken, async (req, res) => {
 
     const { nombre, apellido_p, apellido_m, puesto } = req.body;
 
-    // Validar campos requeridos
     if (!nombre || !apellido_p || !puesto) {
       return res.status(400).json({ message: 'Nombre, apellido paterno y puesto son requeridos' });
     }
 
-    // Validar puesto
     if (!['empleado', 'abogado', 'admin'].includes(puesto)) {
       return res.status(400).json({ message: 'Puesto inválido' });
     }
 
-    // Generar correo automático (basado en nombre.apellido + número único)
     const nombreLimpio = nombre.toLowerCase().replace(/\s+/g, '');
     const apellidoLimpio = apellido_p.toLowerCase().replace(/\s+/g, '');
     let correoBase = `${nombreLimpio}.${apellidoLimpio}@santander.mx`;
     
-    // Verificar si el correo ya existe y agregar número
     let correo = correoBase;
     let contador = 1;
     while (true) {
@@ -453,7 +541,6 @@ app.post('/api/admin/create-user', verifyToken, async (req, res) => {
       contador++;
     }
 
-    // Generar contraseña aleatoria (8 caracteres: letras y números)
     const generarPassword = () => {
       const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
       let password = '';
@@ -464,7 +551,6 @@ app.post('/api/admin/create-user', verifyToken, async (req, res) => {
     };
     const password = generarPassword();
 
-    // Insertar usuario
     const [result] = await pool.query(
       'INSERT INTO usuarios (nombre, apellido_p, apellido_m, puesto, correo, contrasena) VALUES (?, ?, ?, ?, ?, ?)',
       [nombre, apellido_p, apellido_m || '', puesto, correo, password]
@@ -486,26 +572,6 @@ app.post('/api/admin/create-user', verifyToken, async (req, res) => {
   } catch (err) {
     console.error('Error al crear usuario:', err);
     res.status(500).json({ message: 'Error al crear usuario' });
-  }
-});
-
-app.get('/api/correos/:id', verifyToken, async (req, res) => {
-  try {
-    const [rows] = await pool.query(
-      `SELECT c.*, a.ruta as archivo_ruta FROM correos c
-       LEFT JOIN archivos a ON c.archivo_id = a.id WHERE c.id = ?`,
-      [req.params.id]
-    );
-    
-    if (rows.length === 0) {
-      return res.status(404).json({ message: 'Correo no encontrado' });
-    }
-    
-    await pool.query('UPDATE correos SET leido = TRUE WHERE id = ?', [req.params.id]);
-    res.json({ correo: rows[0] });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Error al obtener correo' });
   }
 });
 

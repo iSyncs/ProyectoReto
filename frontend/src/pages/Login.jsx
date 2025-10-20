@@ -11,11 +11,13 @@ function Login() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
+  // Maneja el envío del formulario de login
   const handleLogin = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError("");
 
+    // Realiza la solicitud al backend
     try {
       const res = await fetch("http://localhost:4000/api/login", {
         method: "POST",
@@ -25,14 +27,17 @@ function Login() {
 
       const data = await res.json();
       setLoading(false);
-
+      // Maneja la respuesta del servidor
       if (res.ok) {
         localStorage.setItem("token", data.token);
         navigate("/index");
-      } else {
+      } else // Si hay un error, muestra el mensaje
+      {
         setError(data.message || "Error en login");
       }
-    } catch (err) {
+    }
+    // En caso de error de red u otro tipo 
+    catch (err) {
       setLoading(false);
       setError("Error de conexión con el servidor");
     }

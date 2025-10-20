@@ -11,11 +11,23 @@ export default function Dashboard() {
     total_archivos: 0,
     total_usuarios: 0,
     empleados: 0,
-    abogados: 0
+    abogados: 0,
+    urgentes: 0,
+    no_urgentes: 0
   });
   const [topEmpleados, setTopEmpleados] = useState([]);
   const [recentCorreos, setRecentCorreos] = useState([]);
+  const [filteredCorreos, setFilteredCorreos] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [filterStatus, setFilterStatus] = useState('todos');
+  const [filterUrgency, setFilterUrgency] = useState('todos');
+  const [searchTerm, setSearchTerm] = useState('');
+  
+  // NUEVO: Estado para modal de correo
+  const [selectedCorreo, setSelectedCorreo] = useState(null);
+  const [showModal, setShowModal] = useState(false);
+  const [loadingCorreo, setLoadingCorreo] = useState(false);
+  
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -26,10 +38,13 @@ export default function Dashboard() {
     }
     fetchUserData(token);
     fetchDashboardData(token);
-    
   }, [navigate]);
 
-   const fetchUserData = async (token) => {
+  useEffect(() => {
+    applyFilters();
+  }, [recentCorreos, filterStatus, filterUrgency, searchTerm]);
+
+  const fetchUserData = async (token) => {
     try {
       const res = await fetch("http://localhost:4000/api/me", {
         headers: { Authorization: `Bearer ${token}` }
@@ -51,7 +66,15 @@ export default function Dashboard() {
       
       if (res.ok) {
         const data = await res.json();
-        setStats(data.stats);
+        
+        const urgentes = data.recentCorreos?.filter(c => c.estado === 'urgente').length || 0;
+        const no_urgentes = data.recentCorreos?.filter(c => c.estado === 'normal').length || 0;
+        
+        setStats({
+          ...data.stats,
+          urgentes,
+          no_urgentes
+        });
         setTopEmpleados(data.topEmpleados);
         setRecentCorreos(data.recentCorreos);
       }
@@ -60,6 +83,68 @@ export default function Dashboard() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const applyFilters = () => {
+    let filtered = [...recentCorreos];
+
+    // Filtrar por búsqueda
+    if (searchTerm.trim()) {
+      const term = searchTerm.toLowerCase();
+      filtered = filtered.filter(c => 
+        c.remitente_nombre.toLowerCase().includes(term) ||
+        c.nombre_archivo.toLowerCase().includes(term) ||
+        c.asunto.toLowerCase().includes(term)
+      );
+    }
+
+    // Filtrar por estado de lectura
+    if (filterStatus === 'leido') {
+      filtered = filtered.filter(c => c.leido);
+    } else if (filterStatus === 'no_leido') {
+      filtered = filtered.filter(c => !c.leido);
+    }
+
+    // Filtrar por urgencia
+    if (filterUrgency === 'urgente') {
+      filtered = filtered.filter(c => c.estado === 'urgente');
+    } else if (filterUrgency === 'normal') {
+      filtered = filtered.filter(c => c.estado === 'normal');
+    }
+
+    setFilteredCorreos(filtered);
+  };
+
+  // NUEVA FUNCIÓN: Abrir correo en modal
+  const handleCorreoClick = async (correoId) => {
+    setLoadingCorreo(true);
+    setShowModal(true);
+    
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(`http://localhost:4000/api/admin/correo/${correoId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      if (res.ok) {
+        const data = await res.json();
+        setSelectedCorreo(data.correo);
+      } else {
+        alert('Error al cargar el correo');
+        setShowModal(false);
+      }
+    } catch (err) {
+      console.error('Error al obtener correo:', err);
+      alert('Error al cargar el correo');
+      setShowModal(false);
+    } finally {
+      setLoadingCorreo(false);
+    }
+  };
+
+  const closeModal = () => {
+    setShowModal(false);
+    setSelectedCorreo(null);
   };
 
   const formatDate = (dateString) => {
@@ -76,26 +161,30 @@ export default function Dashboard() {
     return leido ? 'status-leido' : 'status-no-leido';
   };
 
+  const getUrgencyClass = (estado) => {
+    return estado === 'urgente' ? 'urgency-high' : 'urgency-normal';
+  };
+
   if (loading) return <div style={{padding: 20}}>Cargando estadísticas...</div>;
 
   return (
     <main className="dashboard-main">
       <div className="dashboard-header">
         <h1 className="dashboard-title">DASHBOARD</h1>
-              <p className="dashboard-user">
-        {user?.nombre} {user?.apellido_p}
-      </p>
-      <p className="dashboard-role">
-       <span className="dashboard-role-highlight">{user?.puesto}</span>
-      </p>
+        <p className="dashboard-user">
+          {user?.nombre} {user?.apellido_p}
+        </p>
+        <p className="dashboard-role">
+          <span className="dashboard-role-highlight">{user?.puesto}</span>
+        </p>
       </div>
 
       <div className="dashboard-container">
-        {/* Columna Izquierda - Métricas principales */}
+        {/* Columna Izquierda - Métricas y Gráficos */}
         <div className="dashboard-left">
           <div className="dashboard-card metrics-grid">
             <div className="metric-card total">
-              <div className="metric-icon"></div>
+              <div className="metric-icon">📧</div>
               <div className="metric-info">
                 <span className="metric-label">Total Correos</span>
                 <span className="metric-value">{stats.total_correos}</span>
@@ -103,7 +192,7 @@ export default function Dashboard() {
             </div>
 
             <div className="metric-card warning">
-              <div className="metric-icon"></div>
+              <div className="metric-icon">⚠️</div>
               <div className="metric-info">
                 <span className="metric-label">No Leídos</span>
                 <span className="metric-value">{stats.no_leidos}</span>
@@ -111,7 +200,7 @@ export default function Dashboard() {
             </div>
 
             <div className="metric-card success">
-              <div className="metric-icon"></div>
+              <div className="metric-icon">✅</div>
               <div className="metric-info">
                 <span className="metric-label">Leídos</span>
                 <span className="metric-value">{stats.leidos}</span>
@@ -119,7 +208,7 @@ export default function Dashboard() {
             </div>
 
             <div className="metric-card info">
-              <div className="metric-icon"></div>
+              <div className="metric-icon">📁</div>
               <div className="metric-info">
                 <span className="metric-label">Total Archivos</span>
                 <span className="metric-value">{stats.total_archivos}</span>
@@ -127,60 +216,59 @@ export default function Dashboard() {
             </div>
           </div>
 
-          <div className="dashboard-card">
-            <h3 className="card-title">TOP EMPLEADOS POR DOCUMENTOS ENVIADOS</h3>
-              <div className="chart-container">
-                {topEmpleados.length > 0 ? (
-                topEmpleados.slice(0, 10).map((empleado, index) => {
-                const maxHeight = Math.max(...topEmpleados.map(e => e.total));
-                const minHeight = Math.min(...topEmpleados.map(e => e.total));
-                const range = maxHeight - minHeight || 1;
-        
-                // Calcular altura con mejor escala (mínimo 20%, máximo 100%)
-                const height = minHeight === maxHeight 
-                ? 100 
-                : 20 + ((empleado.total - minHeight) / range) * 80;
-        
-          return (
-              <div key={index} className="chart-column">
-                <div 
-                className="chart-bar" 
-                style={{height: `${height}%`}}
-                title={`${empleado.nombre} ${empleado.apellido}: ${empleado.total} documentos`}
-              >
-                <span className="bar-value">{empleado.total}</span>
+          <div className="dashboard-card urgency-metrics">
+            <h3 className="card-title">CORREOS POR PRIORIDAD</h3>
+            <div className="urgency-grid">
+              <div className="urgency-card urgent">
+                <div className="urgency-icon">🚨</div>
+                <div className="urgency-info">
+                  <span className="urgency-label">Urgentes</span>
+                  <span className="urgency-value">{stats.urgentes}</span>
+                </div>
               </div>
-              <span className="chart-label">{empleado.nombre.split(' ')[0]}</span>
+              <div className="urgency-card normal">
+                <div className="urgency-icon">📬</div>
+                <div className="urgency-info">
+                  <span className="urgency-label">Normales</span>
+                  <span className="urgency-value">{stats.no_urgentes}</span>
+                </div>
+              </div>
+            </div>
           </div>
-        );
-      })
-    ) : (
-      <div className="no-data">No hay datos de empleados</div>
-    )}
-  </div>
-</div>
 
           <div className="dashboard-card">
-            <h3 className="card-title">LISTA DE EMPLEADOS</h3>
-            <div className="workers-list">
-              <div className="list-header">
-                <span>Empleado</span>
-                <span>Documentos</span>
-              </div>
-              {topEmpleados.map((empleado, index) => (
-                <div key={index} className="worker-item">
-                  <span>{empleado.nombre} {empleado.apellido}</span>
-                  <span className="worker-count">{empleado.total}</span>
-                </div>
-              ))}
-              {topEmpleados.length === 0 && (
-                <div className="no-data">No hay datos disponibles</div>
+            <h3 className="card-title">TOP EMPLEADOS POR DOCUMENTOS ENVIADOS</h3>
+            <div className="chart-container">
+              {topEmpleados.length > 0 ? (
+                topEmpleados.slice(0, 10).map((empleado, index) => {
+                  const maxHeight = Math.max(...topEmpleados.map(e => e.total));
+                  const minHeight = Math.min(...topEmpleados.map(e => e.total));
+                  const range = maxHeight - minHeight || 1;
+                  const height = minHeight === maxHeight 
+                    ? 100 
+                    : 20 + ((empleado.total - minHeight) / range) * 80;
+          
+                  return (
+                    <div key={index} className="chart-column">
+                      <div 
+                        className="chart-bar" 
+                        style={{height: `${height}%`}}
+                        title={`${empleado.nombre} ${empleado.apellido}: ${empleado.total} documentos`}
+                      >
+                        <span className="bar-value">{empleado.total}</span>
+                      </div>
+                      <span className="chart-label">{empleado.nombre.split(' ')[0]}</span>
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="no-data">No hay datos de empleados</div>
               )}
             </div>
           </div>
         </div>
 
-        {/* Columna Central - Estadísticas del sistema */}
+        {/* Columna Central - Usuarios y Actividad */}
         <div className="dashboard-center">
           <div className="dashboard-card">
             <h3 className="card-title">USUARIOS DEL SISTEMA</h3>
@@ -233,7 +321,7 @@ export default function Dashboard() {
             <h3 className="card-title">RESUMEN DE ACTIVIDAD</h3>
             <div className="activity-summary">
               <div className="activity-item">
-                <div className="activity-icon"></div>
+                <div className="activity-icon">📊</div>
                 <div className="activity-details">
                   <span className="activity-title">Correos Totales</span>
                   <span className="activity-number">{stats.total_correos}</span>
@@ -241,7 +329,7 @@ export default function Dashboard() {
               </div>
 
               <div className="activity-item">
-                <div className="activity-icon pending"></div>
+                <div className="activity-icon pending">⏳</div>
                 <div className="activity-details">
                   <span className="activity-title">Pendientes de Leer</span>
                   <span className="activity-number pending-number">{stats.no_leidos}</span>
@@ -249,7 +337,7 @@ export default function Dashboard() {
               </div>
 
               <div className="activity-item">
-                <div className="activity-icon success"></div>
+                <div className="activity-icon success">✔️</div>
                 <div className="activity-details">
                   <span className="activity-title">Procesados</span>
                   <span className="activity-number success-number">{stats.leidos}</span>
@@ -257,7 +345,7 @@ export default function Dashboard() {
               </div>
 
               <div className="activity-item">
-                <div className="activity-icon"></div>
+                <div className="activity-icon">📈</div>
                 <div className="activity-details">
                   <span className="activity-title">Tasa de Procesamiento</span>
                   <span className="activity-number">
@@ -267,20 +355,85 @@ export default function Dashboard() {
               </div>
             </div>
           </div>
+
         </div>
 
-        {/* Columna Derecha - Correos recientes */}
+        {/* Columna Derecha - Correos con Buscador y Filtros */}
         <div className="dashboard-right">
           <div className="dashboard-card tickets-table">
             <h3 className="card-title">CORREOS RECIENTES</h3>
+            
+            {/* NUEVO: Buscador */}
+            <div className="search-container">
+              <input
+                type="text"
+                placeholder="🔍 Buscar por remitente o archivo..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="search-input"
+              />
+              {searchTerm && (
+                <button 
+                  onClick={() => setSearchTerm('')}
+                  className="clear-search"
+                  title="Limpiar búsqueda"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+
+            {/* Filtros */}
+            <div className="filters-container">
+              <div className="filter-group">
+                <label>Estado:</label>
+                <select 
+                  value={filterStatus} 
+                  onChange={(e) => setFilterStatus(e.target.value)}
+                  className="filter-select"
+                >
+                  <option value="todos">Todos</option>
+                  <option value="leido">Leídos</option>
+                  <option value="no_leido">No Leídos</option>
+                </select>
+              </div>
+
+              <div className="filter-group">
+                <label>Prioridad:</label>
+                <select 
+                  value={filterUrgency} 
+                  onChange={(e) => setFilterUrgency(e.target.value)}
+                  className="filter-select"
+                >
+                  <option value="todos">Todos</option>
+                  <option value="urgente">Urgentes</option>
+                  <option value="normal">Normales</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="results-count">
+              Mostrando {filteredCorreos.length} de {recentCorreos.length} correos
+            </div>
+
             <div className="table-header">
+              <span>PRIORIDAD</span>
               <span>ESTADO</span>
               <span>REMITENTE</span>
               <span>FECHA</span>
             </div>
+            
             <div className="tickets-list">
-              {recentCorreos.map((correo, index) => (
-                <div key={index} className="ticket-row">
+              {filteredCorreos.map((correo, index) => (
+                <div 
+                  key={index} 
+                  className="ticket-row clickable"
+                  onClick={() => handleCorreoClick(correo.id)}
+                  title="Click para ver detalles"
+                >
+                  <span className={`ticket-urgency ${getUrgencyClass(correo.estado)}`}>
+                    {correo.estado === 'urgente' ? '🚨' : '📬'}
+                  </span>
                   <span className={`ticket-status ${getStatusClass(correo.leido)}`}>
                     {correo.leido ? 'Leído' : 'No leído'}
                   </span>
@@ -288,13 +441,128 @@ export default function Dashboard() {
                   <span className="ticket-date">{formatDate(correo.fecha_envio)}</span>
                 </div>
               ))}
-              {recentCorreos.length === 0 && (
-                <div className="no-data">No hay correos recientes</div>
+              {filteredCorreos.length === 0 && (
+                <div className="no-data">
+                  {searchTerm 
+                    ? `No se encontraron correos con "${searchTerm}"` 
+                    : 'No hay correos que coincidan con los filtros'}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="dashboard-card">
+            <h3 className="card-title">LISTA DE EMPLEADOS</h3>
+            <div className="workers-list">
+              <div className="list-header">
+                <span>Empleado</span>
+                <span>Documentos</span>
+              </div>
+              {topEmpleados.slice(0, 8).map((empleado, index) => (
+                <div key={index} className="worker-item">
+                  <span>{empleado.nombre} {empleado.apellido}</span>
+                  <span className="worker-count">{empleado.total}</span>
+                </div>
+              ))}
+              {topEmpleados.length === 0 && (
+                <div className="no-data">No hay datos disponibles</div>
               )}
             </div>
           </div>
         </div>
       </div>
+
+      {/* NUEVO: Modal de Correo */}
+      {showModal && (
+        <div className="modal-overlay" onClick={closeModal}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            {loadingCorreo ? (
+              <div className="modal-loading">Cargando correo...</div>
+            ) : selectedCorreo ? (
+              <>
+                <div className="modal-header">
+                  <h2>{selectedCorreo.asunto}</h2>
+                  <button className="modal-close" onClick={closeModal}>✕</button>
+                </div>
+
+                <div className="modal-body">
+                  <div className="correo-info">
+                    <p><strong>De:</strong> {selectedCorreo.remitente_nombre}</p>
+                    <p><strong>Para:</strong> {selectedCorreo.destinatario}</p>
+                    <p><strong>Fecha:</strong> {formatDate(selectedCorreo.fecha_envio)}</p>
+                    <p><strong>Archivo:</strong> {selectedCorreo.nombre_archivo}</p>
+                    <p>
+                      <strong>Prioridad:</strong> 
+                      <span className={`priority-badge ${selectedCorreo.estado}`}>
+                        {selectedCorreo.estado === 'urgente' ? '🚨 URGENTE' : '📬 Normal'}
+                      </span>
+                    </p>
+                  </div>
+
+                  {selectedCorreo.analisis_ia && (
+                    <div className="analisis-section">
+                      <h3>Análisis de IA (Claude)</h3>
+                      <div className="analisis-content">
+                        {selectedCorreo.analisis_ia}
+                      </div>
+                    </div>
+                  )}
+
+                  {selectedCorreo.archivo_id && selectedCorreo.archivo_tipo?.includes('pdf') && (
+                    <div className="pdf-viewer-section">
+                      <h3>Vista Previa del Documento</h3>
+                      <iframe
+                        src={`http://localhost:4000/api/archivos/view/${selectedCorreo.archivo_id}?token=${localStorage.getItem('token')}`}
+                        className="pdf-iframe"
+                        title="Vista previa PDF"
+                      />
+                    </div>
+                  )}
+
+      <div className="modal-actions">
+        {selectedCorreo.archivo_id && (
+          <a
+            href="#"
+            className="btn-download"
+            onClick={async (e) => {
+              e.preventDefault();
+              try {
+                const token = localStorage.getItem('token');
+                const res = await fetch(
+                  `http://localhost:4000/api/archivos/download/${selectedCorreo.archivo_id}`,
+                  { headers: { Authorization: `Bearer ${token}` } }
+                );
+                if (!res.ok) throw new Error('Error en la descarga');
+                const blob = await res.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = selectedCorreo.nombre_archivo || 'archivo';
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                window.URL.revokeObjectURL(url);
+              } catch (err) {
+                console.error(err);
+                alert('Error al descargar el archivo');
+              }
+            }}
+          >
+            📥 Descargar Archivo
+          </a>
+        )}
+        <button onClick={closeModal} className="btn-close-modal">
+          Cerrar
+        </button>
+      </div>
+                </div>
+              </>
+            ) : (
+              <div className="modal-error">Error al cargar el correo</div>
+            )}
+          </div>
+        </div>
+      )}
     </main>
   );
 }
