@@ -1,6 +1,6 @@
 # Proyecto Reto
 
-Este sistema permite a los empleados escanear y enviar documentos legales que son automáticamente analizados por IA (DeepSeek) y enviados al departamento legal. Los abogados pueden revisar los documentos en una bandeja de entrada con vista previa de PDF integrada, mientras que los administradores tienen acceso a un dashboard con métricas y gestión de usuarios.
+Este sistema permite a los empleados escanear y enviar documentos legales que son automáticamente analizados por IA  y enviados al departamento legal. Los abogados pueden revisar los documentos en una bandeja de entrada con vista previa de PDF integrada, mientras que los administradores tienen acceso a un dashboard con métricas y gestión de usuarios.
 
 
 ## 📦 Instalación
