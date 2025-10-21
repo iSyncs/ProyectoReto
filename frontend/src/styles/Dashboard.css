@@ -960,4 +960,52 @@
   cursor: pointer;
   transition: all 0.2s;
   text-decoration: none;
-  display
+}
+
+.markdown-content h2,
+.markdown-content h3,
+.markdown-content h4 {
+  margin-top: 1.5rem;
+  margin-bottom: 0.75rem;
+  color: #333;
+  font-weight: 700;
+}
+
+.markdown-content h2 {
+  font-size: 1.3rem;
+}
+
+.markdown-content h3 {
+  font-size: 1.1rem;
+}
+
+.markdown-content h4 {
+  font-size: 1rem;
+}
+
+.markdown-content strong {
+  font-weight: 700;
+  color: #000;
+}
+
+.markdown-content ul {
+  margin-left: 1.5rem;
+  margin-bottom: 1rem;
+  margin-top: 0.5rem;
+  padding-left: 0;
+}
+
+.markdown-content li {
+  margin-bottom: 0.4rem;
+  line-height: 1.6;
+  list-style-type: disc;
+}
+
+.markdown-content p {
+  margin-bottom: 0.5rem;
+  line-height: 1.6;
+}
+
+.markdown-content p:empty {
+  display: none;
+}

@@ -1,12 +1,11 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import "../styles/App.css";
-import NavBar from "../components/NavBar";
-import Footer from "../components/Footer";
-import imgjuego from "../assets/game.png";
+import "../styles/Videojuego.css";
 
 export default function Videojuego() {
   const [user, setUser] = useState(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isGameLoaded, setGameLoaded] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -30,20 +29,48 @@ export default function Videojuego() {
     })();
   }, [navigate]);
 
-  if (!user) return <div style={{padding:20}}>Cargando...</div>;
+  const toggleFullscreen = () => {
+    const gameContainer = document.getElementById('game-iframe-container');
+    
+    if (!document.fullscreenElement) {
+      gameContainer.requestFullscreen().then(() => {
+        setIsFullscreen(true);
+      }).catch(err => {
+        console.error('Error al entrar en pantalla completa:', err);
+      });
+    } else {
+      document.exitFullscreen().then(() => {
+        setIsFullscreen(false);
+      });
+    }
+  };
 
   return (
     <>
-      <main className="index-main">
+      <main className="videojuego-main">
         <h1 className="videojuego-title">Videojuego de Capacitación</h1>
-        <p className="videojuego-descripcion">
-          "Aquí se cargará el módulo interactivo de capacitación. Haz clic en el botón para entrar en pantalla completa.""
-        </p>
-        <div className="game-container">
-          <div className="game-placeholder"><img src={imgjuego} alt="" /></div>
-                  <center>
-                  <h1 className="videojuego-title">Estado:<span className="manual-title-red"> incompleto </span> </h1>
-</center>
+
+        <div className="game-wrapper">
+          <div 
+            id="game-iframe-container" 
+            className={`game-container ${isGameLoaded ? 'loaded' : ''}`}
+            style={{ backgroundColor: isGameLoaded ? 'transparent' : '#222' }}
+          >
+            <iframe
+              src="/unitygame/index.html"
+              title="Juego Unity"
+              className="game-iframe"
+              allowFullScreen
+              onLoad={() => setGameLoaded(true)}
+              style={{ visibility: isGameLoaded ? 'visible' : 'hidden' }}
+            ></iframe>
+          </div>
+
+          <div className="game-status">
+            <h2 className="status-title">
+              Estado: <span className="status-incomplete">incompleto</span>
+            </h2>
+          </div>
         </div>
       </main>
     </>

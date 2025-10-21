@@ -167,6 +167,51 @@ export default function Dashboard() {
 
   if (loading) return <div style={{padding: 20}}>Cargando estadísticas...</div>;
 
+// Función mejorada para convertir Markdown a HTML
+const renderMarkdown = (text) => {
+  if (!text) return '';
+  
+  let html = text
+    // Títulos
+    .replace(/^### (.+)$/gm, '<h4>$1</h4>')
+    .replace(/^## (.+)$/gm, '<h3>$1</h3>')
+    .replace(/^# (.+)$/gm, '<h2>$1</h2>')
+    // Negritas: **texto** -> <strong>texto</strong>
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  
+ // Procesar líneas
+  const lines = html.split('\n');
+  let inList = false;
+  let result = [];
+  
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    
+    // Solo convertir a lista si tiene <strong> (negritas)
+    if (line.startsWith('- ') && line.includes('<strong>')) {
+      if (!inList) {
+        result.push('<ul>');
+        inList = true;
+      }
+      result.push(`<li>${line.substring(2)}</li>`);
+    } else {
+      if (inList) {
+        result.push('</ul>');
+        inList = false;
+      }
+      if (line) {
+        result.push(`<p>${line}</p>`);
+      }
+    }
+  }
+  
+  if (inList) {
+    result.push('</ul>');
+  }
+  
+  return result.join('');
+};
+
   return (
     <main className="dashboard-main">
       <div className="dashboard-header">
@@ -499,14 +544,15 @@ export default function Dashboard() {
                     </p>
                   </div>
 
-                  {selectedCorreo.analisis_ia && (
-                    <div className="analisis-section">
-                      <h3>Análisis de IA (Claude)</h3>
-                      <div className="analisis-content">
-                        {selectedCorreo.analisis_ia}
-                      </div>
-                    </div>
-                  )}
+{selectedCorreo.analisis_ia && (
+  <div className="analisis-section">
+    <h3>Análisis de IA</h3>
+    <div 
+      className="analisis-content markdown-content"
+      dangerouslySetInnerHTML={{ __html: renderMarkdown(selectedCorreo.analisis_ia) }}
+    />
+  </div>
+)}
 
                   {selectedCorreo.archivo_id && selectedCorreo.archivo_tipo?.includes('pdf') && (
                     <div className="pdf-viewer-section">
